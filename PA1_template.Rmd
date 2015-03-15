@@ -7,19 +7,125 @@ output:
 
 
 ## Loading and preprocessing the data
+Set the working directory and use read.csv to load the data.
+```{r}
+setwd("/Users/patrick/R/RepData_PeerAssessment1")
+rawdata <- read.csv("activity.csv")
+```
 
+Take a look at the variables and see if they're the correct format.
+```{r}
+str(rawdata)
+```
 
+We want to convert the "date" column to a Date format with as.Date.
+
+```{r}
+rawdata$date <- as.Date(rawdata$date)
+str(rawdata)
+```
 
 ## What is mean total number of steps taken per day?
 
+Let's aggregate the data to show total steps by day.
+```{r}
+dailytotals <- aggregate(steps~date, data= rawdata, sum)
+dailytotals
+```
+
+Let's plot a histogram of the total steps taken each day.
+```{r}
+hist(dailytotals$steps)
+```
+
+Now let's see what the mean and median steps taken a day are. We will round the mean by coercing it into an intereger. 
+```{r}
+meansteps <- as.integer(mean(dailytotals$steps))
+mediansteps <- median(dailytotals$steps)
+meansteps
+mediansteps
+```
+
+The mean number of steps is `r meansteps` and the median number of steps is `r mediansteps`.
 
 
 ## What is the average daily activity pattern?
 
+Now let's aggregate to find average steps per interval across all days.
+```{r}
+intervalaverages <- aggregate(steps~interval, data= rawdata, mean)
+```
 
+Instead of printing the data, let's look at a plot of it.
+```{r}
+plot(intervalaverages, type="l")
+```
+
+And determine the interval that has the highest average number of steps across all days.
+```{r}
+intervalaverages[which.max(intervalaverages$steps),]
+```
 
 ## Imputing missing values
 
+Let's figure out how many rows have NAs. 
+```{r}
+NArows <- is.na(rawdata$steps)
+numNAs <- sum(NArows)
+```
+
+There are `r numNAs` rows of data with NAs.
+
+Let's replace those NAs with the mean steps for their interval. We will then round these mean values by using the as.integer function. The new dataset wil be in temprawdata.
+```{r}
+tempintervalaverages <- intervalaverages
+names(tempintervalaverages)[2] <- "tempsteps"
+temprawdata <- merge(rawdata, tempintervalaverages)
+temprawdata$steps[is.na(temprawdata$steps)] <- temprawdata$tempsteps[is.na(temprawdata$steps)]
+temprawdata$steps <- as.integer(temprawdata$steps)
+temprawdata$tempsteps <- NULL
+```
+
+Let's aggregate the data to show total steps by day.
+```{r}
+tempdailytotals <- aggregate(steps~date, data= temprawdata, sum)
+tempdailytotals
+```
+
+Let's plot a histogram of the total steps taken each day.
+```{r}
+hist(tempdailytotals$steps)
+```
+
+Now let's see what the mean and median steps taken a day are. We will round the mean by coercing it into an intereger. 
+```{r}
+tempmeansteps <- as.integer(mean(tempdailytotals$steps))
+tempmediansteps <- median(tempdailytotals$steps)
+tempmeansteps
+tempmediansteps
+```
+
+The mean number of steps is `r tempmeansteps` and the median number of steps is `r tempmediansteps`.
+
+This process of imputing the values for NA increased the frequency in the 'middle' bucket and also lowered the mean and median of the data.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Let's first make a column to list the days of the week. Then we'll create another column to flag which values are weekdays and which are weekends.
+```{r}
+temprawdata$weekdays <- weekdays(temprawdata$date)
+temprawdata$daytype <- "weekday"
+temprawdata[temprawdata$weekdays %in% c("Saturday","Sunday"), "daytype"] <-"weekend"
+```
+
+Now we can aggregate the average number of steps across interval but make the distinction between weekend and weekdays. 
+```{r}
+aggbydaytype <- aggregate(steps~interval+daytype, data= temprawdata, mean)
+```
+
+Then we can plot the data to observe any differences in average activity patterns between weekends and weekdays.
+```{r}
+library(lattice)
+xyplot(steps~interval | daytype, data = aggbydaytype, layout=c(1,2), type = "l")
+```
